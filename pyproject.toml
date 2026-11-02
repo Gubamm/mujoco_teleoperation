@@ -1,0 +1,11 @@
+[project]
+name = "robot-programming"
+version = "0.1.0"
+requires-python = ">=3.10,<3.11"
+dependencies = [
+    "glfw>=2.11.0",
+    "imageio-ffmpeg>=0.7.0",
+    "mujoco>=3.17.0",
+    "numpy>=1.26,<3",
+    "pillow>=12.3.0",
+]
