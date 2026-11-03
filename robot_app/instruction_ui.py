@@ -11,24 +11,59 @@ _qt_app = None
 def edit_instruction(current):
     """Modal dialog; simulation stays paused until Apply/Cancel. None means cancelled."""
     from PySide6.QtCore import Qt
-    from PySide6.QtWidgets import QApplication, QDialog, QInputDialog
+    from PySide6.QtGui import QFont, QFontDatabase
+    from PySide6.QtWidgets import (
+        QApplication, QDialog, QDialogButtonBox, QLabel, QPlainTextEdit, QVBoxLayout,
+    )
 
     # Keep the application alive across dialogs while GLFW owns the main loop.
     global _qt_app
     if _qt_app is None:
         _qt_app = QApplication.instance() or QApplication([])
         _qt_app.setQuitOnLastWindowClosed(False)
-    dialog = QInputDialog()
+    dialog = QDialog()
     dialog.setWindowTitle('Instruction 변경')
-    dialog.setLabelText(
-        '현재 작업의 instruction을 입력하세요.\n'
-        '녹화 중 변경하면 현재 에피소드를 저장하고 새 에피소드로 이어갑니다.')
-    dialog.setInputMode(QInputDialog.InputMode.TextInput)
-    dialog.setTextValue(current)
     dialog.setWindowFlag(Qt.WindowType.WindowStaysOnTopHint, True)
-    dialog.resize(540, 160)
+    dialog.setSizeGripEnabled(True)
+    available_fonts = set(QFontDatabase.families())
+    for family in ('Noto Sans CJK KR', 'NanumGothic', 'Malgun Gothic', 'Apple SD Gothic Neo'):
+        if family in available_fonts:
+            dialog.setFont(QFont(family, 12))
+            break
+
+    layout = QVBoxLayout(dialog)
+    layout.setContentsMargins(20, 20, 20, 20)
+    layout.setSpacing(12)
+    label = QLabel('현재 작업의 instruction을 입력하세요.')
+    label.setWordWrap(True)
+    layout.addWidget(label)
+    editor = QPlainTextEdit()
+    editor.setPlainText(current)
+    editor.setPlaceholderText('예: 사과를 집어 트레이에 놓으세요.')
+    editor.setLineWrapMode(QPlainTextEdit.LineWrapMode.WidgetWidth)
+    label.setBuddy(editor)
+    layout.addWidget(editor, 1)
+    hint = QLabel('녹화 중 변경하면 현재 에피소드를 저장하고 새 에피소드로 이어갑니다.')
+    hint.setWordWrap(True)
+    layout.addWidget(hint)
+    buttons = QDialogButtonBox(
+        QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
+    buttons.button(QDialogButtonBox.StandardButton.Ok).setText('적용')
+    buttons.button(QDialogButtonBox.StandardButton.Cancel).setText('취소')
+    buttons.accepted.connect(dialog.accept)
+    buttons.rejected.connect(dialog.reject)
+    layout.addWidget(buttons)
+    dialog.setMinimumSize(320, 240)
+    screen = _qt_app.primaryScreen()
+    if screen is not None:
+        area = screen.availableGeometry()
+        dialog.resize(min(640, int(area.width() * 0.8)),
+                      min(360, int(area.height() * 0.8)))
+    else:
+        dialog.resize(640, 360)
+    editor.setFocus()
     try:
-        return dialog.textValue().strip() if dialog.exec() == QDialog.DialogCode.Accepted else None
+        return editor.toPlainText().strip() if dialog.exec() == QDialog.DialogCode.Accepted else None
     finally:
         dialog.deleteLater()
 
