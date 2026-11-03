@@ -8,4 +8,5 @@ dependencies = [
     "mujoco>=3.17.0",
     "numpy>=1.26,<3",
     "pillow>=12.3.0",
+    "pyside6>=6.8,<7",
 ]

@@ -21,6 +21,7 @@ Click the teleoperation window before using these keys (one increment per key ev
   I/K: TCP +Rx/-Rx  J/L: TCP +Ry/-Ry  U/O: TCP +Rz/-Rz
   G: close gripper by 0.1    T: open gripper by 0.1
   B: start/stop recording   N: save recording and reset to home
+  R: save/stop recording and randomize tray, banana, apple
   H or the Instruction button: edit the task instruction
   All three cameras are shown together. Esc: save and exit
 Close the window or press Ctrl+C to save the current recording and exit.
@@ -205,6 +206,9 @@ def main():
                         while not keys.empty():
                             keys.get_nowait()
                         break
+                    elif key == 'R':
+                        recorder.save()
+                        env.randomize_objects()
                     elif key == 'N':
                         recorder.save()
                         env.reset()

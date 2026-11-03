@@ -5,24 +5,32 @@ import numpy as np
 from PIL import Image, ImageDraw, ImageFont
 
 HEADER_HEIGHT = 100
+_qt_app = None
 
 
 def edit_instruction(current):
     """Modal dialog; simulation stays paused until Apply/Cancel. None means cancelled."""
-    import tkinter as tk
-    from tkinter import simpledialog
-    root = tk.Tk()
-    root.withdraw()
-    root.attributes('-topmost', True)
+    from PySide6.QtCore import Qt
+    from PySide6.QtWidgets import QApplication, QDialog, QInputDialog
+
+    # Keep the application alive across dialogs while GLFW owns the main loop.
+    global _qt_app
+    if _qt_app is None:
+        _qt_app = QApplication.instance() or QApplication([])
+        _qt_app.setQuitOnLastWindowClosed(False)
+    dialog = QInputDialog()
+    dialog.setWindowTitle('Instruction 변경')
+    dialog.setLabelText(
+        '현재 작업의 instruction을 입력하세요.\n'
+        '녹화 중 변경하면 현재 에피소드를 저장하고 새 에피소드로 이어갑니다.')
+    dialog.setInputMode(QInputDialog.InputMode.TextInput)
+    dialog.setTextValue(current)
+    dialog.setWindowFlag(Qt.WindowType.WindowStaysOnTopHint, True)
+    dialog.resize(540, 160)
     try:
-        result = simpledialog.askstring(
-            'Instruction 변경',
-            '현재 작업의 instruction을 입력하세요.\n'
-            '녹화 중 변경하면 현재 에피소드를 저장하고 새 에피소드로 이어갑니다.',
-            initialvalue=current, parent=root)
-        return result.strip() if result is not None else None
+        return dialog.textValue().strip() if dialog.exec() == QDialog.DialogCode.Accepted else None
     finally:
-        root.destroy()
+        dialog.deleteLater()
 
 
 def font(size):

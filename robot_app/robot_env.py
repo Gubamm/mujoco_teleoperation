@@ -60,6 +60,68 @@ class RobotEnv:
         self.target_position, self.target_quaternion = self.eef_pose()
         return self.state()
 
+    def randomize_objects(self, rng=None):
+        """Jitter tray by 4cm/20deg; swap fruit anchors and jitter by 10cm/45deg.
+
+        Keep the arm unchanged. Reject placements penetrating other objects or the robot.
+        On failure leave the entire live state untouched.
+        """
+        rng = np.random.default_rng() if rng is None else rng
+        objects = [self.model.body(name).id for name in ('tray_4', 'banana_1', 'apple_0')]
+        joints = [int(self.model.body_jntadr[body]) for body in objects]
+        home = self.model.key_qpos[self.model.key('home').id]
+        owner = np.full(self.model.nbody, -1, dtype=int)
+        for body in range(1, self.model.nbody):
+            owner[body] = body if body in objects else owner[self.model.body_parentid[body]]
+        table = self.model.body('table').id
+        trial = mujoco.MjData(self.model)
+        table_geom = self.model.geom('table_collision').id
+        object_geoms = [g for g in range(self.model.ngeom)
+                        if owner[self.model.geom_bodyid[g]] != -1]
+        for _ in range(100):
+            trial.qpos[:] = self.data.qpos
+            anchors = [self.model.jnt_qposadr[j] for j in joints]
+            if rng.random() < 0.5:
+                anchors[1], anchors[2] = anchors[2], anchors[1]
+            for index, joint in enumerate(joints):
+                q = self.model.jnt_qposadr[joint]
+                trial.qpos[q:q+7] = home[q:q+7]
+                span = 0.04 if index == 0 else 0.10
+                trial.qpos[q:q+2] = home[anchors[index]:anchors[index]+2] + rng.uniform(-span, span, size=2)
+                yaw_limit = np.deg2rad(20 if index == 0 else 45)
+                angle = rng.uniform(-yaw_limit, yaw_limit)
+                yaw = np.array([np.cos(angle/2), 0, 0, np.sin(angle/2)])
+                mujoco.mju_mulQuat(trial.qpos[q+3:q+7], yaw, home[q+3:q+7])
+            mujoco.mj_forward(self.model, trial)
+            # Conservatively keep each mesh bounding sphere inside the tabletop.
+            table_rotation = trial.geom_xmat[table_geom].reshape(3, 3)
+            outside = False
+            for geom in object_geoms:
+                local = table_rotation.T @ (trial.geom_xpos[geom] - trial.geom_xpos[table_geom])
+                if np.any(np.abs(local[:2]) + self.model.geom_rbound[geom]
+                          > self.model.geom_size[table_geom, :2] - 0.01):
+                    outside = True
+                    break
+            if outside:
+                continue
+            overlaps = False
+            for contact in trial.contact:
+                a, b = self.model.geom_bodyid[contact.geom1], self.model.geom_bodyid[contact.geom2]
+                if (contact.dist < -0.0001 and table not in (a, b)
+                        and (owner[a] != -1 or owner[b] != -1) and owner[a] != owner[b]):
+                    overlaps = True
+                    break
+            if overlaps:
+                continue
+            for joint in joints:
+                q, v = self.model.jnt_qposadr[joint], self.model.jnt_dofadr[joint]
+                self.data.qpos[q:q+7] = trial.qpos[q:q+7]
+                self.data.qvel[v:v+6] = 0
+                self.data.qacc_warmstart[v:v+6] = 0
+            mujoco.mj_forward(self.model, self.data)
+            return True
+        return False
+
     def state(self):
         closure = np.mean((self.data.qpos[self.driver_qpos] - self.driver_lower)
                           / self.driver_span)

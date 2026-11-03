@@ -9,7 +9,7 @@ CAMERA_NAMES = ('front', 'top_camera', 'gripper')
 
 class TeleopWindow:
     MOVEMENT_KEYS = frozenset('WSADQEIKJLUOGT')
-    COMMAND_KEYS = frozenset('BNH')
+    COMMAND_KEYS = frozenset('BNHR')
 
     def __init__(self, model, key_callback):
         self.window = None
@@ -122,7 +122,7 @@ class TeleopWindow:
         mujoco.mjr_overlay(mujoco.mjtFont.mjFONT_NORMAL, mujoco.mjtGridPos.mjGRID_TOPLEFT,
                            mujoco.MjrRect(0, 0, width, height - HEADER_HEIGHT), f'{status} | {samples} samples | Front / Top / Gripper\n'
                            'TCP: W/S A/D Q/E XYZ   I/K J/L U/O rotation\n'
-                           'G/T: close/open   B: record/save   N: reset   Esc: save and exit',
+                           'G/T: close/open   B: record/save   N: reset   R: randomize   Esc: exit',
                            '', self.context)
         pixels = self.instruction_header.image(width, instruction)
         mujoco.mjr_drawPixels(pixels.ravel(), None,
